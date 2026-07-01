@@ -227,8 +227,9 @@ async function joinRoom(room, name, colorIdx){
   state.colorIdx = colorIdx;
   state.key = keyFor(state.name);
 
-  // Sauvegarder les données locales (juste pour préremplir le formulaire la prochaine fois)
-  localStorage.setItem('last-session', JSON.stringify({room: state.room, name: state.name, colorIdx}));
+  // Sauvegarder la couleur choisie en mémoire (pas le code ni le prénom)
+  state._draftRoom = '';
+  state._draftName = '';
 
   // Charger les membres du groupe (objet clé -> {name, colorIdx})
   const membersObj = await loadFromFirebase(`members/${state.room}`) || {};
@@ -355,22 +356,6 @@ function renderJoin(){
     document.getElementById('btn-join').textContent = 'Connexion...';
     await joinRoom(room, name, state.colorIdx);
   };
-
-  // Charger la dernière session sauvegardée localement
-  const lastSession = localStorage.getItem('last-session');
-  if(lastSession){
-    try {
-      const data = JSON.parse(lastSession);
-      if(data && !roomInput.value){
-        roomInput.value = data.room || '';
-        nameInput.value = data.name || '';
-        state.colorIdx = typeof data.colorIdx === 'number' ? data.colorIdx : 0;
-        state._draftRoom = roomInput.value;
-        state._draftName = nameInput.value;
-        renderJoin();
-      }
-    } catch(e) {}
-  }
 }
 
 /* ---------- CALENDAR HELPERS ---------- */
