@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FF6B4A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dispos">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Quand êtes-vous libres?</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -200,7 +206,7 @@ const CATEGORIES = {
 };
 
 const HOURS = [];
-for(let h=8; h<=23; h++) HOURS.push(h);
+for(let h=0; h<=23; h++) HOURS.push(h);
 const WEEKDAY_LABELS = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
 const state = {
@@ -357,13 +363,13 @@ async function refreshEverything(){
   const groupNotesObj = await loadFromFirebase(`notes/${state.room}`) || {};
   state.groupNotes = groupNotesObj;
 
-  if(state.screen === 'planner') render();
+  if(state.screen === 'planner' && !state.sheetOpenFor) render();
 }
 
 let pollHandle = null;
 function startPolling(){
   if(pollHandle) clearInterval(pollHandle);
-  pollHandle = setInterval(refreshEverything, 5000);
+  pollHandle = setInterval(refreshEverything, 120000);
 }
 
 let reminderHandle = null;
@@ -983,6 +989,13 @@ const initialGroups = loadJoinedGroups();
 state.screen = initialGroups.length ? 'hub' : 'join';
 render();
 })();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
 </script>
 </body>
 </html>
