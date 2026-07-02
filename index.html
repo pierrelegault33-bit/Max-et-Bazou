@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Dispos">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Quand êtes-vous libres?</title>
+<title>When are you free?</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -52,6 +52,7 @@
   @keyframes fade{ from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
 
   /* ---------- JOIN / HUB SCREENS ---------- */
+  .top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   .brand-mark{ width:56px; height:56px; border-radius:16px; background: var(--coral); display:flex; align-items:center; justify-content:center; margin-bottom:18px; transform: rotate(-4deg); }
   .brand-mark svg{ width:28px; height:28px; }
   .lead{ font-size:30px; line-height:1.15; margin-bottom:6px; }
@@ -86,6 +87,10 @@
   .group-remove{ width:28px; height:28px; border-radius:50%; background:var(--bg); display:flex; align-items:center; justify-content:center; flex:0 0 auto; cursor:pointer; touch-action: manipulation; }
 
   .empty-groups{ text-align:center; padding: 34px 10px; color: var(--ink-soft); font-size:14px; }
+
+  /* ---------- LANGUAGE SWITCHER ---------- */
+  .lang-select{ appearance:none; -webkit-appearance:none; font-family:'Manrope',sans-serif; font-weight:700; font-size:12.5px; color:var(--ink); background:var(--paper); border:1.5px solid var(--line); border-radius:10px; padding:8px 26px 8px 10px; cursor:pointer; flex:0 0 auto; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%235B6B68' stroke-width='3'><polyline points='6 9 12 15 18 9'></polyline></svg>"); background-repeat:no-repeat; background-position: right 8px center; }
+  .lang-select.icon-btn-style{ width:36px; height:36px; padding:0; text-align:center; text-align-last:center; }
 
   /* ---------- PLANNER SCREEN ---------- */
   .topbar{ display:flex; align-items:flex-start; justify-content:space-between; padding:22px 20px 14px; gap:10px; }
@@ -146,7 +151,6 @@
   .sheet .sheet-sub{ font-size:13px; color: var(--ink-soft); margin-bottom:14px; }
   .sheet-quick{ display:flex; gap:8px; margin-bottom:14px; }
   .sheet-person{ display:flex; align-items:center; gap:10px; padding:8px 0; font-size:14px; font-weight:600; }
-
   .sheet-section{ margin-top: 20px; padding-top:16px; border-top:1px solid var(--line); }
   .sheet-section-title{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; margin-bottom:8px; }
 
@@ -171,6 +175,8 @@
   .toast{ position:fixed; bottom:18px; left:50%; transform: translateX(-50%); background: var(--ink); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; z-index:60; opacity:0; transition: opacity .25s ease; max-width:90%; text-align:center; }
   .toast.show{ opacity:1; }
 
+  html[dir="rtl"] .hint-row, html[dir="rtl"] .legend-item, html[dir="rtl"] .member-chip, html[dir="rtl"] .topbar-left, html[dir="rtl"] .sheet-person{ direction: rtl; }
+
   ::-webkit-scrollbar{ display:none; }
 </style>
 </head>
@@ -182,6 +188,81 @@
 (function(){
 
 const DB_URL = "https://quand-etes-vous-libres-default-rtdb.firebaseio.com";
+
+/* ============================ i18n ============================ */
+const LANGS = ['fr','en','es','pt','de','it','nl','ru','zh','ja','ko','ar'];
+const LANG_NAMES = {fr:'Français',en:'English',es:'Español',pt:'Português',de:'Deutsch',it:'Italiano',nl:'Nederlands',ru:'Русский',zh:'中文',ja:'日本語',ko:'한국어',ar:'العربية'};
+const LOCALE_MAP = {fr:'fr-CA',en:'en-US',es:'es-ES',pt:'pt-PT',de:'de-DE',it:'it-IT',nl:'nl-NL',ru:'ru-RU',zh:'zh-CN',ja:'ja-JP',ko:'ko-KR',ar:'ar-SA'};
+const WEEKDAYS_MAP = {
+  fr:['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'],
+  en:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+  es:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+  pt:['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],
+  de:['Mo','Di','Mi','Do','Fr','Sa','So'],
+  it:['Lun','Mar','Mer','Gio','Ven','Sab','Dom'],
+  nl:['Ma','Di','Wo','Do','Vr','Za','Zo'],
+  ru:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
+  zh:['周一','周二','周三','周四','周五','周六','周日'],
+  ja:['月','火','水','木','金','土','日'],
+  ko:['월','화','수','목','금','토','일'],
+  ar:['اثن','ثلا','أرب','خمي','جمع','سبت','أحد'],
+};
+
+const I18N = {
+fr:{hub_title:"Mes groupes",hub_sub:"Retrouve tes groupes de disponibilités par catégorie, ou crée-en un nouveau.",hub_empty:"Tu n'as encore rejoint aucun groupe.",hub_new_group:"+ Nouveau groupe",cat_ami:"Amis",cat_travail:"Travail",cat_famille:"Famille",cat_autre:"Autre",back_my_groups:"Mes groupes",join_title:"Quand êtes-vous libres?",join_sub:"Crée un groupe ou rejoins celui de tes amis pour comparer vos disponibilités, sur plusieurs mois si besoin.",label_room_code:"Code du groupe",ph_room:"ex. road-trip-ete",label_group_name:"Nom du groupe (optionnel)",ph_group_name:"ex. Sortie entre amis",label_category:"Catégorie",label_your_name:"Ton prénom",ph_name:"ex. Sam",label_color:"Ta couleur",btn_join:"Rejoindre le groupe",btn_connecting:"Connexion...",hint_no_password:"Pas de mot de passe — quiconque a le code peut voir et modifier ses propres disponibilités.",toast_need_fields:"Ajoute un code de groupe et ton prénom.",tab_mine:"Mes dispos",tab_everyone:"Tout le monde",title_hub:"Mes groupes",title_refresh:"Actualiser",title_today:"Aujourd'hui",title_prev_month:"Mois précédent",title_next_month:"Mois suivant",title_language:"Langue",legend_mine:"Plus la barre est foncée, plus tu as d'heures libres",legend_everyone:"Heure commune à tout le monde",tap_hint:"Touche un jour pour voir les heures, ajouter une note ou un rappel",btn_clear_avail:"Effacer mes dispos",btn_leave_group:"Quitter ce groupe",toast_updated:"Mis à jour.",toast_cleared:"Tes disponibilités ont été effacées.",notif_banner_default:"🔔 Active les rappels pour recevoir une notification sur ce cellulaire.",btn_enable:"Activer",notif_banner_denied:"🔕 Les notifications sont bloquées dans les réglages de ton navigateur.",toast_notif_enabled:"Rappels activés.",toast_notif_unsupported:"Ton navigateur ne supporte pas les notifications.",nobody:"personne",no_reminder_day:"Aucun rappel pour ce jour.",sheet_sub_mine:"Touche une heure pour indiquer si tu es libre",sheet_sub_everyone:"Qui est libre, heure par heure",btn_day_all:"Toute la journée libre",btn_day_none:"Aucune dispo",group_note_label:"Note du groupe (visible par tous)",group_note_ph:"ex. Souper chez Max, apportez du vin",last_edit_by:"Dernière modif par {name}",my_note_label:"Ma note personnelle",my_note_ph:"Visible seulement pour toi dans l'appli",my_reminders_label:"Mes rappels",reminder_ph:"ex. Confirmer ma présence",btn_add_reminder:"+ Ajouter un rappel",notif_hint:"Active les notifications (bandeau plus haut) pour recevoir une alerte.",btn_close:"Fermer",toast_add_reminder_text:"Ajoute un texte pour ton rappel.",reminder_notif_title:"Rappel — {label}",reminder_notif_body:"Tu as un rappel aujourd'hui.",toast_reminder_prefix:"Rappel: ",error_save:"Erreur de sauvegarde — vérifie ta connexion",member_singular:"membre",member_plural:"membres"},
+en:{hub_title:"My groups",hub_sub:"Find your availability groups by category, or start a new one.",hub_empty:"You haven't joined any group yet.",hub_new_group:"+ New group",cat_ami:"Friends",cat_travail:"Work",cat_famille:"Family",cat_autre:"Other",back_my_groups:"My groups",join_title:"When are you free?",join_sub:"Create a group or join your friends' group to compare your availability, across several months if needed.",label_room_code:"Group code",ph_room:"e.g. summer-roadtrip",label_group_name:"Group name (optional)",ph_group_name:"e.g. Friends hangout",label_category:"Category",label_your_name:"Your name",ph_name:"e.g. Sam",label_color:"Your color",btn_join:"Join group",btn_connecting:"Connecting...",hint_no_password:"No password — anyone with the code can see and edit their own availability.",toast_need_fields:"Add a group code and your name.",tab_mine:"My availability",tab_everyone:"Everyone",title_hub:"My groups",title_refresh:"Refresh",title_today:"Today",title_prev_month:"Previous month",title_next_month:"Next month",title_language:"Language",legend_mine:"The darker the bar, the more free hours you have",legend_everyone:"Hour everyone has in common",tap_hint:"Tap a day to see hours, add a note or a reminder",btn_clear_avail:"Clear my availability",btn_leave_group:"Leave this group",toast_updated:"Updated.",toast_cleared:"Your availability has been cleared.",notif_banner_default:"🔔 Turn on reminders to get a notification on this phone.",btn_enable:"Enable",notif_banner_denied:"🔕 Notifications are blocked in your browser settings.",toast_notif_enabled:"Reminders enabled.",toast_notif_unsupported:"Your browser doesn't support notifications.",nobody:"nobody",no_reminder_day:"No reminder for this day.",sheet_sub_mine:"Tap an hour to mark yourself as free",sheet_sub_everyone:"Who's free, hour by hour",btn_day_all:"Free all day",btn_day_none:"Not available",group_note_label:"Group note (visible to everyone)",group_note_ph:"e.g. Dinner at Max's, bring wine",last_edit_by:"Last edited by {name}",my_note_label:"My personal note",my_note_ph:"Only visible to you in the app",my_reminders_label:"My reminders",reminder_ph:"e.g. Confirm my attendance",btn_add_reminder:"+ Add a reminder",notif_hint:"Turn on notifications (banner above) to receive an alert.",btn_close:"Close",toast_add_reminder_text:"Add some text for your reminder.",reminder_notif_title:"Reminder — {label}",reminder_notif_body:"You have a reminder today.",toast_reminder_prefix:"Reminder: ",error_save:"Save error — check your connection",member_singular:"member",member_plural:"members"},
+es:{hub_title:"Mis grupos",hub_sub:"Encuentra tus grupos de disponibilidad por categoría, o crea uno nuevo.",hub_empty:"Aún no te has unido a ningún grupo.",hub_new_group:"+ Nuevo grupo",cat_ami:"Amigos",cat_travail:"Trabajo",cat_famille:"Familia",cat_autre:"Otro",back_my_groups:"Mis grupos",join_title:"¿Cuándo están libres?",join_sub:"Crea un grupo o únete al de tus amigos para comparar sus disponibilidades, en varios meses si es necesario.",label_room_code:"Código del grupo",ph_room:"ej. viaje-verano",label_group_name:"Nombre del grupo (opcional)",ph_group_name:"ej. Salida con amigos",label_category:"Categoría",label_your_name:"Tu nombre",ph_name:"ej. Sam",label_color:"Tu color",btn_join:"Unirse al grupo",btn_connecting:"Conectando...",hint_no_password:"Sin contraseña — cualquiera con el código puede ver y editar su propia disponibilidad.",toast_need_fields:"Agrega un código de grupo y tu nombre.",tab_mine:"Mi disponibilidad",tab_everyone:"Todos",title_hub:"Mis grupos",title_refresh:"Actualizar",title_today:"Hoy",title_prev_month:"Mes anterior",title_next_month:"Mes siguiente",title_language:"Idioma",legend_mine:"Mientras más oscura la barra, más horas libres tienes",legend_everyone:"Hora en que todos coinciden",tap_hint:"Toca un día para ver las horas, añadir una nota o un recordatorio",btn_clear_avail:"Borrar mi disponibilidad",btn_leave_group:"Salir de este grupo",toast_updated:"Actualizado.",toast_cleared:"Tu disponibilidad ha sido borrada.",notif_banner_default:"🔔 Activa los recordatorios para recibir una notificación en este celular.",btn_enable:"Activar",notif_banner_denied:"🔕 Las notificaciones están bloqueadas en la configuración de tu navegador.",toast_notif_enabled:"Recordatorios activados.",toast_notif_unsupported:"Tu navegador no admite notificaciones.",nobody:"nadie",no_reminder_day:"No hay recordatorios para este día.",sheet_sub_mine:"Toca una hora para indicar si estás libre",sheet_sub_everyone:"Quién está libre, hora por hora",btn_day_all:"Libre todo el día",btn_day_none:"Sin disponibilidad",group_note_label:"Nota del grupo (visible para todos)",group_note_ph:"ej. Cena en casa de Max, trae vino",last_edit_by:"Última edición por {name}",my_note_label:"Mi nota personal",my_note_ph:"Solo visible para ti en la app",my_reminders_label:"Mis recordatorios",reminder_ph:"ej. Confirmar mi asistencia",btn_add_reminder:"+ Añadir recordatorio",notif_hint:"Activa las notificaciones (aviso arriba) para recibir una alerta.",btn_close:"Cerrar",toast_add_reminder_text:"Añade un texto para tu recordatorio.",reminder_notif_title:"Recordatorio — {label}",reminder_notif_body:"Tienes un recordatorio hoy.",toast_reminder_prefix:"Recordatorio: ",error_save:"Error al guardar — revisa tu conexión",member_singular:"miembro",member_plural:"miembros"},
+pt:{hub_title:"Meus grupos",hub_sub:"Encontre seus grupos de disponibilidade por categoria, ou crie um novo.",hub_empty:"Você ainda não entrou em nenhum grupo.",hub_new_group:"+ Novo grupo",cat_ami:"Amigos",cat_travail:"Trabalho",cat_famille:"Família",cat_autre:"Outro",back_my_groups:"Meus grupos",join_title:"Quando vocês estão livres?",join_sub:"Crie um grupo ou entre no de seus amigos para comparar as disponibilidades, em vários meses se necessário.",label_room_code:"Código do grupo",ph_room:"ex. viagem-verao",label_group_name:"Nome do grupo (opcional)",ph_group_name:"ex. Saída com amigos",label_category:"Categoria",label_your_name:"Seu nome",ph_name:"ex. Sam",label_color:"Sua cor",btn_join:"Entrar no grupo",btn_connecting:"Conectando...",hint_no_password:"Sem senha — qualquer pessoa com o código pode ver e editar sua própria disponibilidade.",toast_need_fields:"Adicione um código de grupo e seu nome.",tab_mine:"Minha disponibilidade",tab_everyone:"Todos",title_hub:"Meus grupos",title_refresh:"Atualizar",title_today:"Hoje",title_prev_month:"Mês anterior",title_next_month:"Próximo mês",title_language:"Idioma",legend_mine:"Quanto mais escura a barra, mais horas livres você tem",legend_everyone:"Hora em comum entre todos",tap_hint:"Toque em um dia para ver as horas, adicionar uma nota ou lembrete",btn_clear_avail:"Limpar minha disponibilidade",btn_leave_group:"Sair deste grupo",toast_updated:"Atualizado.",toast_cleared:"Sua disponibilidade foi apagada.",notif_banner_default:"🔔 Ative os lembretes para receber uma notificação neste celular.",btn_enable:"Ativar",notif_banner_denied:"🔕 As notificações estão bloqueadas nas configurações do seu navegador.",toast_notif_enabled:"Lembretes ativados.",toast_notif_unsupported:"Seu navegador não suporta notificações.",nobody:"ninguém",no_reminder_day:"Nenhum lembrete para este dia.",sheet_sub_mine:"Toque em uma hora para indicar se está livre",sheet_sub_everyone:"Quem está livre, hora a hora",btn_day_all:"Livre o dia todo",btn_day_none:"Sem disponibilidade",group_note_label:"Nota do grupo (visível para todos)",group_note_ph:"ex. Jantar na casa do Max, traga vinho",last_edit_by:"Última edição por {name}",my_note_label:"Minha nota pessoal",my_note_ph:"Visível somente para você no app",my_reminders_label:"Meus lembretes",reminder_ph:"ex. Confirmar minha presença",btn_add_reminder:"+ Adicionar lembrete",notif_hint:"Ative as notificações (aviso acima) para receber um alerta.",btn_close:"Fechar",toast_add_reminder_text:"Adicione um texto para o seu lembrete.",reminder_notif_title:"Lembrete — {label}",reminder_notif_body:"Você tem um lembrete hoje.",toast_reminder_prefix:"Lembrete: ",error_save:"Erro ao salvar — verifique sua conexão",member_singular:"membro",member_plural:"membros"},
+de:{hub_title:"Meine Gruppen",hub_sub:"Finde deine Verfügbarkeitsgruppen nach Kategorie oder erstelle eine neue.",hub_empty:"Du bist noch keiner Gruppe beigetreten.",hub_new_group:"+ Neue Gruppe",cat_ami:"Freunde",cat_travail:"Arbeit",cat_famille:"Familie",cat_autre:"Andere",back_my_groups:"Meine Gruppen",join_title:"Wann habt ihr Zeit?",join_sub:"Erstelle eine Gruppe oder tritt der deiner Freunde bei, um eure Verfügbarkeit zu vergleichen, bei Bedarf über mehrere Monate.",label_room_code:"Gruppencode",ph_room:"z. B. sommer-roadtrip",label_group_name:"Gruppenname (optional)",ph_group_name:"z. B. Treffen mit Freunden",label_category:"Kategorie",label_your_name:"Dein Name",ph_name:"z. B. Sam",label_color:"Deine Farbe",btn_join:"Gruppe beitreten",btn_connecting:"Verbindung wird hergestellt...",hint_no_password:"Kein Passwort — jeder mit dem Code kann seine eigene Verfügbarkeit sehen und bearbeiten.",toast_need_fields:"Füge einen Gruppencode und deinen Namen hinzu.",tab_mine:"Meine Verfügbarkeit",tab_everyone:"Alle",title_hub:"Meine Gruppen",title_refresh:"Aktualisieren",title_today:"Heute",title_prev_month:"Vorheriger Monat",title_next_month:"Nächster Monat",title_language:"Sprache",legend_mine:"Je dunkler der Balken, desto mehr freie Stunden hast du",legend_everyone:"Stunde, die alle gemeinsam haben",tap_hint:"Tippe auf einen Tag, um Stunden zu sehen, eine Notiz oder Erinnerung hinzuzufügen",btn_clear_avail:"Meine Verfügbarkeit löschen",btn_leave_group:"Diese Gruppe verlassen",toast_updated:"Aktualisiert.",toast_cleared:"Deine Verfügbarkeit wurde gelöscht.",notif_banner_default:"🔔 Aktiviere Erinnerungen, um eine Benachrichtigung auf diesem Handy zu erhalten.",btn_enable:"Aktivieren",notif_banner_denied:"🔕 Benachrichtigungen sind in deinen Browsereinstellungen blockiert.",toast_notif_enabled:"Erinnerungen aktiviert.",toast_notif_unsupported:"Dein Browser unterstützt keine Benachrichtigungen.",nobody:"niemand",no_reminder_day:"Keine Erinnerung für diesen Tag.",sheet_sub_mine:"Tippe auf eine Stunde, um anzugeben, ob du frei bist",sheet_sub_everyone:"Wer ist frei, Stunde für Stunde",btn_day_all:"Den ganzen Tag frei",btn_day_none:"Keine Verfügbarkeit",group_note_label:"Gruppennotiz (für alle sichtbar)",group_note_ph:"z. B. Abendessen bei Max, bring Wein mit",last_edit_by:"Zuletzt bearbeitet von {name}",my_note_label:"Meine persönliche Notiz",my_note_ph:"Nur für dich in der App sichtbar",my_reminders_label:"Meine Erinnerungen",reminder_ph:"z. B. Meine Teilnahme bestätigen",btn_add_reminder:"+ Erinnerung hinzufügen",notif_hint:"Aktiviere Benachrichtigungen (Banner oben), um eine Warnung zu erhalten.",btn_close:"Schließen",toast_add_reminder_text:"Füge einen Text für deine Erinnerung hinzu.",reminder_notif_title:"Erinnerung — {label}",reminder_notif_body:"Du hast heute eine Erinnerung.",toast_reminder_prefix:"Erinnerung: ",error_save:"Fehler beim Speichern — überprüfe deine Verbindung",member_singular:"Mitglied",member_plural:"Mitglieder"},
+it:{hub_title:"I miei gruppi",hub_sub:"Trova i tuoi gruppi di disponibilità per categoria, o creane uno nuovo.",hub_empty:"Non hai ancora aderito a nessun gruppo.",hub_new_group:"+ Nuovo gruppo",cat_ami:"Amici",cat_travail:"Lavoro",cat_famille:"Famiglia",cat_autre:"Altro",back_my_groups:"I miei gruppi",join_title:"Quando siete liberi?",join_sub:"Crea un gruppo o unisciti a quello dei tuoi amici per confrontare le disponibilità, anche su più mesi.",label_room_code:"Codice del gruppo",ph_room:"es. viaggio-estate",label_group_name:"Nome del gruppo (opzionale)",ph_group_name:"es. Uscita con amici",label_category:"Categoria",label_your_name:"Il tuo nome",ph_name:"es. Sam",label_color:"Il tuo colore",btn_join:"Unisciti al gruppo",btn_connecting:"Connessione...",hint_no_password:"Nessuna password — chiunque abbia il codice può vedere e modificare la propria disponibilità.",toast_need_fields:"Aggiungi un codice di gruppo e il tuo nome.",tab_mine:"La mia disponibilità",tab_everyone:"Tutti",title_hub:"I miei gruppi",title_refresh:"Aggiorna",title_today:"Oggi",title_prev_month:"Mese precedente",title_next_month:"Mese successivo",title_language:"Lingua",legend_mine:"Più scura è la barra, più ore libere hai",legend_everyone:"Ora in comune con tutti",tap_hint:"Tocca un giorno per vedere le ore, aggiungere una nota o un promemoria",btn_clear_avail:"Cancella la mia disponibilità",btn_leave_group:"Lascia questo gruppo",toast_updated:"Aggiornato.",toast_cleared:"La tua disponibilità è stata cancellata.",notif_banner_default:"🔔 Attiva i promemoria per ricevere una notifica su questo telefono.",btn_enable:"Attiva",notif_banner_denied:"🔕 Le notifiche sono bloccate nelle impostazioni del tuo browser.",toast_notif_enabled:"Promemoria attivati.",toast_notif_unsupported:"Il tuo browser non supporta le notifiche.",nobody:"nessuno",no_reminder_day:"Nessun promemoria per questo giorno.",sheet_sub_mine:"Tocca un'ora per indicare se sei libero",sheet_sub_everyone:"Chi è libero, ora per ora",btn_day_all:"Libero tutto il giorno",btn_day_none:"Nessuna disponibilità",group_note_label:"Nota di gruppo (visibile a tutti)",group_note_ph:"es. Cena da Max, porta il vino",last_edit_by:"Ultima modifica di {name}",my_note_label:"La mia nota personale",my_note_ph:"Visibile solo a te nell'app",my_reminders_label:"I miei promemoria",reminder_ph:"es. Confermare la mia presenza",btn_add_reminder:"+ Aggiungi promemoria",notif_hint:"Attiva le notifiche (banner sopra) per ricevere un avviso.",btn_close:"Chiudi",toast_add_reminder_text:"Aggiungi un testo per il tuo promemoria.",reminder_notif_title:"Promemoria — {label}",reminder_notif_body:"Hai un promemoria oggi.",toast_reminder_prefix:"Promemoria: ",error_save:"Errore di salvataggio — controlla la tua connessione",member_singular:"membro",member_plural:"membri"},
+nl:{hub_title:"Mijn groepen",hub_sub:"Vind je beschikbaarheidsgroepen per categorie, of maak een nieuwe aan.",hub_empty:"Je bent nog geen groep aangesloten.",hub_new_group:"+ Nieuwe groep",cat_ami:"Vrienden",cat_travail:"Werk",cat_famille:"Familie",cat_autre:"Andere",back_my_groups:"Mijn groepen",join_title:"Wanneer zijn jullie vrij?",join_sub:"Maak een groep aan of sluit je aan bij die van je vrienden om jullie beschikbaarheid te vergelijken, indien nodig over meerdere maanden.",label_room_code:"Groepscode",ph_room:"bv. zomer-roadtrip",label_group_name:"Groepsnaam (optioneel)",ph_group_name:"bv. Uitje met vrienden",label_category:"Categorie",label_your_name:"Je naam",ph_name:"bv. Sam",label_color:"Je kleur",btn_join:"Groep toetreden",btn_connecting:"Verbinden...",hint_no_password:"Geen wachtwoord — iedereen met de code kan zijn eigen beschikbaarheid zien en bewerken.",toast_need_fields:"Voeg een groepscode en je naam toe.",tab_mine:"Mijn beschikbaarheid",tab_everyone:"Iedereen",title_hub:"Mijn groepen",title_refresh:"Vernieuwen",title_today:"Vandaag",title_prev_month:"Vorige maand",title_next_month:"Volgende maand",title_language:"Taal",legend_mine:"Hoe donkerder de balk, hoe meer vrije uren je hebt",legend_everyone:"Uur dat iedereen gemeen heeft",tap_hint:"Tik op een dag om de uren te zien, een notitie of herinnering toe te voegen",btn_clear_avail:"Mijn beschikbaarheid wissen",btn_leave_group:"Deze groep verlaten",toast_updated:"Bijgewerkt.",toast_cleared:"Je beschikbaarheid is gewist.",notif_banner_default:"🔔 Zet herinneringen aan om een melding op deze telefoon te ontvangen.",btn_enable:"Inschakelen",notif_banner_denied:"🔕 Meldingen zijn geblokkeerd in je browserinstellingen.",toast_notif_enabled:"Herinneringen ingeschakeld.",toast_notif_unsupported:"Je browser ondersteunt geen meldingen.",nobody:"niemand",no_reminder_day:"Geen herinnering voor deze dag.",sheet_sub_mine:"Tik op een uur om aan te geven of je vrij bent",sheet_sub_everyone:"Wie is vrij, uur per uur",btn_day_all:"Hele dag vrij",btn_day_none:"Niet beschikbaar",group_note_label:"Groepsnotitie (zichtbaar voor iedereen)",group_note_ph:"bv. Diner bij Max, breng wijn mee",last_edit_by:"Laatst bewerkt door {name}",my_note_label:"Mijn persoonlijke notitie",my_note_ph:"Alleen zichtbaar voor jou in de app",my_reminders_label:"Mijn herinneringen",reminder_ph:"bv. Mijn aanwezigheid bevestigen",btn_add_reminder:"+ Herinnering toevoegen",notif_hint:"Zet meldingen aan (banner hierboven) om een waarschuwing te ontvangen.",btn_close:"Sluiten",toast_add_reminder_text:"Voeg tekst toe voor je herinnering.",reminder_notif_title:"Herinnering — {label}",reminder_notif_body:"Je hebt vandaag een herinnering.",toast_reminder_prefix:"Herinnering: ",error_save:"Opslagfout — controleer je verbinding",member_singular:"lid",member_plural:"leden"},
+ru:{hub_title:"Мои группы",hub_sub:"Найдите свои группы для сравнения доступности по категориям или создайте новую.",hub_empty:"Вы ещё не присоединились ни к одной группе.",hub_new_group:"+ Новая группа",cat_ami:"Друзья",cat_travail:"Работа",cat_famille:"Семья",cat_autre:"Другое",back_my_groups:"Мои группы",join_title:"Когда вы свободны?",join_sub:"Создайте группу или присоединитесь к группе друзей, чтобы сравнить доступность, при необходимости на несколько месяцев вперёд.",label_room_code:"Код группы",ph_room:"напр. летняя-поездка",label_group_name:"Название группы (необязательно)",ph_group_name:"напр. Встреча с друзьями",label_category:"Категория",label_your_name:"Ваше имя",ph_name:"напр. Саша",label_color:"Ваш цвет",btn_join:"Присоединиться к группе",btn_connecting:"Подключение...",hint_no_password:"Без пароля — любой, у кого есть код, может видеть и редактировать свою доступность.",toast_need_fields:"Добавьте код группы и своё имя.",tab_mine:"Моя доступность",tab_everyone:"Все",title_hub:"Мои группы",title_refresh:"Обновить",title_today:"Сегодня",title_prev_month:"Предыдущий месяц",title_next_month:"Следующий месяц",title_language:"Язык",legend_mine:"Чем темнее полоса, тем больше у вас свободных часов",legend_everyone:"Час, общий для всех",tap_hint:"Нажмите на день, чтобы увидеть часы, добавить заметку или напоминание",btn_clear_avail:"Очистить мою доступность",btn_leave_group:"Покинуть эту группу",toast_updated:"Обновлено.",toast_cleared:"Ваша доступность очищена.",notif_banner_default:"🔔 Включите напоминания, чтобы получать уведомления на этом телефоне.",btn_enable:"Включить",notif_banner_denied:"🔕 Уведомления заблокированы в настройках вашего браузера.",toast_notif_enabled:"Напоминания включены.",toast_notif_unsupported:"Ваш браузер не поддерживает уведомления.",nobody:"никого",no_reminder_day:"Нет напоминаний на этот день.",sheet_sub_mine:"Нажмите на час, чтобы отметить, свободны ли вы",sheet_sub_everyone:"Кто свободен, час за часом",btn_day_all:"Свободен весь день",btn_day_none:"Недоступен",group_note_label:"Заметка группы (видна всем)",group_note_ph:"напр. Ужин у Макса, принесите вино",last_edit_by:"Последнее изменение: {name}",my_note_label:"Моя личная заметка",my_note_ph:"Видна только вам в приложении",my_reminders_label:"Мои напоминания",reminder_ph:"напр. Подтвердить своё участие",btn_add_reminder:"+ Добавить напоминание",notif_hint:"Включите уведомления (баннер выше), чтобы получать оповещения.",btn_close:"Закрыть",toast_add_reminder_text:"Добавьте текст для напоминания.",reminder_notif_title:"Напоминание — {label}",reminder_notif_body:"У вас сегодня есть напоминание.",toast_reminder_prefix:"Напоминание: ",error_save:"Ошибка сохранения — проверьте соединение",member_singular:"участник",member_plural:"участников"},
+zh:{hub_title:"我的群组",hub_sub:"按类别查找你的可用时间群组，或创建一个新的。",hub_empty:"你还没有加入任何群组。",hub_new_group:"+ 新建群组",cat_ami:"朋友",cat_travail:"工作",cat_famille:"家人",cat_autre:"其他",back_my_groups:"我的群组",join_title:"你们什么时候有空？",join_sub:"创建一个群组，或加入朋友的群组来比较大家的空闲时间，如有需要可跨越多个月。",label_room_code:"群组代码",ph_room:"例：夏日旅行",label_group_name:"群组名称（可选）",ph_group_name:"例：朋友聚会",label_category:"类别",label_your_name:"你的名字",ph_name:"例：小明",label_color:"你的颜色",btn_join:"加入群组",btn_connecting:"连接中...",hint_no_password:"无需密码 — 任何拥有代码的人都可以查看和编辑自己的可用时间。",toast_need_fields:"请填写群组代码和你的名字。",tab_mine:"我的时间",tab_everyone:"所有人",title_hub:"我的群组",title_refresh:"刷新",title_today:"今天",title_prev_month:"上个月",title_next_month:"下个月",title_language:"语言",legend_mine:"颜色越深，表示你空闲的时间越多",legend_everyone:"大家都有空的时间",tap_hint:"点击某一天查看时间段，添加备注或提醒",btn_clear_avail:"清除我的可用时间",btn_leave_group:"退出该群组",toast_updated:"已更新。",toast_cleared:"你的可用时间已清除。",notif_banner_default:"🔔 开启提醒，在此手机上接收通知。",btn_enable:"开启",notif_banner_denied:"🔕 通知已在浏览器设置中被屏蔽。",toast_notif_enabled:"提醒已开启。",toast_notif_unsupported:"你的浏览器不支持通知功能。",nobody:"无人",no_reminder_day:"这一天没有提醒。",sheet_sub_mine:"点击某个时间段来标记你是否有空",sheet_sub_everyone:"逐时查看谁有空",btn_day_all:"全天有空",btn_day_none:"没有空",group_note_label:"群组备注（所有人可见）",group_note_ph:"例：在小马家聚餐，带瓶酒来",last_edit_by:"最后编辑者：{name}",my_note_label:"我的私人备注",my_note_ph:"仅你自己在应用中可见",my_reminders_label:"我的提醒",reminder_ph:"例：确认出席",btn_add_reminder:"+ 添加提醒",notif_hint:"开启通知（上方横幅）以接收提醒。",btn_close:"关闭",toast_add_reminder_text:"请填写提醒内容。",reminder_notif_title:"提醒 — {label}",reminder_notif_body:"你今天有一个提醒。",toast_reminder_prefix:"提醒：",error_save:"保存失败 — 请检查你的网络连接",member_singular:"成员",member_plural:"成员"},
+ja:{hub_title:"マイグループ",hub_sub:"カテゴリー別に予定調整グループを見つけるか、新しく作成しましょう。",hub_empty:"まだどのグループにも参加していません。",hub_new_group:"+ 新しいグループ",cat_ami:"友達",cat_travail:"仕事",cat_famille:"家族",cat_autre:"その他",back_my_groups:"マイグループ",join_title:"みんないつ空いてる？",join_sub:"グループを作成するか、友達のグループに参加して、必要なら数か月先まで空き時間を比較しましょう。",label_room_code:"グループコード",ph_room:"例：夏の旅行",label_group_name:"グループ名（任意）",ph_group_name:"例：友達との集まり",label_category:"カテゴリー",label_your_name:"あなたの名前",ph_name:"例：サム",label_color:"あなたの色",btn_join:"グループに参加",btn_connecting:"接続中...",hint_no_password:"パスワードは不要です — コードを知っている人は誰でも自分の空き時間を確認・編集できます。",toast_need_fields:"グループコードと名前を入力してください。",tab_mine:"自分の予定",tab_everyone:"みんなの予定",title_hub:"マイグループ",title_refresh:"更新",title_today:"今日",title_prev_month:"前の月",title_next_month:"次の月",title_language:"言語",legend_mine:"バーの色が濃いほど、空き時間が多いことを示します",legend_everyone:"全員が空いている時間",tap_hint:"日付をタップすると、時間帯の確認、メモやリマインダーの追加ができます",btn_clear_avail:"自分の予定をクリア",btn_leave_group:"このグループを退出",toast_updated:"更新しました。",toast_cleared:"あなたの空き時間を削除しました。",notif_banner_default:"🔔 リマインダーをオンにして、この端末で通知を受け取りましょう。",btn_enable:"有効にする",notif_banner_denied:"🔕 ブラウザの設定で通知がブロックされています。",toast_notif_enabled:"リマインダーを有効にしました。",toast_notif_unsupported:"お使いのブラウザは通知に対応していません。",nobody:"誰もいません",no_reminder_day:"この日のリマインダーはありません。",sheet_sub_mine:"時間帯をタップして空いているか設定してください",sheet_sub_everyone:"時間ごとに誰が空いているか表示",btn_day_all:"終日空いている",btn_day_none:"空いていない",group_note_label:"グループのメモ（全員に表示）",group_note_ph:"例：マックスの家で夕食、ワイン持参",last_edit_by:"最終編集者：{name}",my_note_label:"自分だけのメモ",my_note_ph:"アプリ内であなただけに表示されます",my_reminders_label:"自分のリマインダー",reminder_ph:"例：出席を確認する",btn_add_reminder:"+ リマインダーを追加",notif_hint:"通知を有効にすると（上のバナー）、アラートを受け取れます。",btn_close:"閉じる",toast_add_reminder_text:"リマインダーの内容を入力してください。",reminder_notif_title:"リマインダー — {label}",reminder_notif_body:"今日リマインダーがあります。",toast_reminder_prefix:"リマインダー：",error_save:"保存エラー — 接続を確認してください",member_singular:"メンバー",member_plural:"メンバー"},
+ko:{hub_title:"내 그룹",hub_sub:"카테고리별로 일정 조율 그룹을 찾거나 새로 만들어 보세요.",hub_empty:"아직 가입한 그룹이 없습니다.",hub_new_group:"+ 새 그룹",cat_ami:"친구",cat_travail:"직장",cat_famille:"가족",cat_autre:"기타",back_my_groups:"내 그룹",join_title:"언제 시간이 되세요?",join_sub:"그룹을 만들거나 친구의 그룹에 참여해서 필요하면 여러 달에 걸쳐 가능한 시간을 비교해 보세요.",label_room_code:"그룹 코드",ph_room:"예: 여름-여행",label_group_name:"그룹 이름 (선택 사항)",ph_group_name:"예: 친구 모임",label_category:"카테고리",label_your_name:"이름",ph_name:"예: 샘",label_color:"내 색상",btn_join:"그룹 참여",btn_connecting:"연결 중...",hint_no_password:"비밀번호가 없습니다 — 코드를 아는 사람은 누구나 자신의 가능한 시간을 보고 수정할 수 있습니다.",toast_need_fields:"그룹 코드와 이름을 입력하세요.",tab_mine:"내 일정",tab_everyone:"모두",title_hub:"내 그룹",title_refresh:"새로고침",title_today:"오늘",title_prev_month:"이전 달",title_next_month:"다음 달",title_language:"언어",legend_mine:"막대가 진할수록 여유 시간이 많다는 뜻입니다",legend_everyone:"모두가 가능한 시간",tap_hint:"날짜를 탭하면 시간, 메모 또는 알림을 추가할 수 있습니다",btn_clear_avail:"내 일정 지우기",btn_leave_group:"이 그룹 나가기",toast_updated:"업데이트되었습니다.",toast_cleared:"내 가능한 시간이 지워졌습니다.",notif_banner_default:"🔔 알림을 켜서 이 휴대폰으로 알림을 받아보세요.",btn_enable:"켜기",notif_banner_denied:"🔕 브라우저 설정에서 알림이 차단되어 있습니다.",toast_notif_enabled:"알림이 켜졌습니다.",toast_notif_unsupported:"이 브라우저는 알림을 지원하지 않습니다.",nobody:"아무도 없음",no_reminder_day:"이 날에는 알림이 없습니다.",sheet_sub_mine:"시간을 탭해서 가능 여부를 표시하세요",sheet_sub_everyone:"시간대별로 누가 가능한지 확인",btn_day_all:"하루 종일 가능",btn_day_none:"가능한 시간 없음",group_note_label:"그룹 메모 (모두에게 표시)",group_note_ph:"예: 맥스네 저녁 식사, 와인 가져오기",last_edit_by:"마지막 수정: {name}",my_note_label:"나만의 메모",my_note_ph:"앱에서 나에게만 표시됩니다",my_reminders_label:"내 알림",reminder_ph:"예: 참석 확인하기",btn_add_reminder:"+ 알림 추가",notif_hint:"알림을 켜면 (위 배너) 경고를 받을 수 있습니다.",btn_close:"닫기",toast_add_reminder_text:"알림 내용을 입력하세요.",reminder_notif_title:"알림 — {label}",reminder_notif_body:"오늘 알림이 있습니다.",toast_reminder_prefix:"알림: ",error_save:"저장 오류 — 연결을 확인하세요",member_singular:"멤버",member_plural:"멤버"},
+ar:{hub_title:"مجموعاتي",hub_sub:"ابحث عن مجموعات التوفر حسب الفئة، أو أنشئ مجموعة جديدة.",hub_empty:"لم تنضم إلى أي مجموعة بعد.",hub_new_group:"+ مجموعة جديدة",cat_ami:"أصدقاء",cat_travail:"عمل",cat_famille:"عائلة",cat_autre:"أخرى",back_my_groups:"مجموعاتي",join_title:"متى تكونون متاحين؟",join_sub:"أنشئ مجموعة أو انضم إلى مجموعة أصدقائك لمقارنة أوقات التوفر، على عدة أشهر إذا لزم الأمر.",label_room_code:"رمز المجموعة",ph_room:"مثال: رحلة-الصيف",label_group_name:"اسم المجموعة (اختياري)",ph_group_name:"مثال: لقاء الأصدقاء",label_category:"الفئة",label_your_name:"اسمك",ph_name:"مثال: سام",label_color:"لونك",btn_join:"انضمام إلى المجموعة",btn_connecting:"جارٍ الاتصال...",hint_no_password:"بدون كلمة مرور — يمكن لأي شخص لديه الرمز رؤية وتعديل توفره الخاص.",toast_need_fields:"أضف رمز المجموعة واسمك.",tab_mine:"أوقاتي",tab_everyone:"الجميع",title_hub:"مجموعاتي",title_refresh:"تحديث",title_today:"اليوم",title_prev_month:"الشهر السابق",title_next_month:"الشهر التالي",title_language:"اللغة",legend_mine:"كلما كان الشريط أغمق، زادت ساعات توفرك",legend_everyone:"ساعة مشتركة بين الجميع",tap_hint:"اضغط على يوم لعرض الساعات، أو إضافة ملاحظة أو تذكير",btn_clear_avail:"مسح أوقات توفري",btn_leave_group:"مغادرة هذه المجموعة",toast_updated:"تم التحديث.",toast_cleared:"تم مسح أوقات توفرك.",notif_banner_default:"🔔 فعّل التذكيرات لتلقي إشعار على هذا الهاتف.",btn_enable:"تفعيل",notif_banner_denied:"🔕 الإشعارات محظورة في إعدادات متصفحك.",toast_notif_enabled:"تم تفعيل التذكيرات.",toast_notif_unsupported:"متصفحك لا يدعم الإشعارات.",nobody:"لا أحد",no_reminder_day:"لا يوجد تذكير لهذا اليوم.",sheet_sub_mine:"اضغط على ساعة لتحديد ما إذا كنت متاحًا",sheet_sub_everyone:"من هو متاح، ساعة بساعة",btn_day_all:"متاح طوال اليوم",btn_day_none:"غير متاح",group_note_label:"ملاحظة المجموعة (مرئية للجميع)",group_note_ph:"مثال: عشاء عند ماكس، أحضر النبيذ",last_edit_by:"آخر تعديل بواسطة {name}",my_note_label:"ملاحظتي الشخصية",my_note_ph:"مرئية لك فقط في التطبيق",my_reminders_label:"تذكيراتي",reminder_ph:"مثال: تأكيد حضوري",btn_add_reminder:"+ إضافة تذكير",notif_hint:"فعّل الإشعارات (الشريط أعلاه) لتلقي تنبيه.",btn_close:"إغلاق",toast_add_reminder_text:"أضف نصًا لتذكيرك.",reminder_notif_title:"تذكير — {label}",reminder_notif_body:"لديك تذكير اليوم.",toast_reminder_prefix:"تذكير: ",error_save:"خطأ في الحفظ — تحقق من اتصالك",member_singular:"عضو",member_plural:"أعضاء"},
+};
+
+function detectLang(){
+  try{
+    const saved = localStorage.getItem('app-lang');
+    if(saved && LANGS.indexOf(saved) !== -1) return saved;
+  }catch(e){}
+  const nav = ((navigator.language || 'en').split('-')[0] || 'en').toLowerCase();
+  return LANGS.indexOf(nav) !== -1 ? nav : 'en';
+}
+
+function T(key, vars){
+  const dict = I18N[state.lang] || I18N.en;
+  let s = (dict[key] !== undefined) ? dict[key] : (I18N.en[key] !== undefined ? I18N.en[key] : key);
+  if(vars){
+    Object.keys(vars).forEach(k => { s = s.split('{'+k+'}').join(vars[k]); });
+  }
+  return s;
+}
+
+function applyLangToDocument(){
+  document.documentElement.lang = state.lang;
+  document.documentElement.dir = (state.lang === 'ar') ? 'rtl' : 'ltr';
+  document.title = T('join_title');
+}
+
+function setLang(lang){
+  if(LANGS.indexOf(lang) === -1) return;
+  state.lang = lang;
+  try{ localStorage.setItem('app-lang', lang); }catch(e){}
+  applyLangToDocument();
+  render();
+}
+
+function buildLangSelectHtml(id){
+  return `<select id="${id}" class="lang-select" aria-label="${T('title_language')}">${LANGS.map(l => `<option value="${l}" ${l===state.lang?'selected':''}>${LANG_NAMES[l]}</option>`).join('')}</select>`;
+}
+function attachLangSelect(id){
+  const el = document.getElementById(id);
+  if(el) el.onchange = () => setLang(el.value);
+}
+/* ========================= end i18n ========================= */
 
 function keyFor(name){
   return encodeURIComponent(name.trim().toLowerCase()).replace(/\./g, '%2E');
@@ -199,15 +280,14 @@ const PALETTE = [
 ];
 
 const CATEGORIES = {
-  ami:     {label:'Amis',     icon:'👥', color:'#FF6B4A'},
-  travail: {label:'Travail',  icon:'💼', color:'#5B7FA6'},
-  famille: {label:'Famille',  icon:'🏠', color:'#2F9C8F'},
-  autre:   {label:'Autre',    icon:'✨', color:'#8C5383'},
+  ami:     {icon:'👥', color:'#FF6B4A'},
+  travail: {icon:'💼', color:'#5B7FA6'},
+  famille: {icon:'🏠', color:'#2F9C8F'},
+  autre:   {icon:'✨', color:'#8C5383'},
 };
 
 const HOURS = [];
 for(let h=0; h<=23; h++) HOURS.push(h);
-const WEEKDAY_LABELS = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
 const state = {
   screen: 'hub',
@@ -228,7 +308,9 @@ const state = {
   sheetOpenFor: null,
   notifPermission: (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported',
   firedReminders: new Set(),
+  lang: 'en',
 };
+state.lang = detectLang();
 
 function pad(n){ return n<10 ? '0'+n : ''+n; }
 function dstr(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
@@ -237,7 +319,13 @@ function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()=
 function fmtSlot(dateStr, hour){ return dateStr+'_'+hour; }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function colorOf(idx){ return PALETTE[idx % PALETTE.length]; }
-function catOf(cat){ return CATEGORIES[cat] || CATEGORIES.autre; }
+function catOf(cat){
+  const key = CATEGORIES[cat] ? cat : 'autre';
+  const c = CATEGORIES[key];
+  return {icon:c.icon, color:c.color, label: T('cat_'+key)};
+}
+function weekdayLabels(){ return WEEKDAYS_MAP[state.lang] || WEEKDAYS_MAP.en; }
+function localeOf(){ return LOCALE_MAP[state.lang] || 'en-US'; }
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -256,8 +344,8 @@ async function saveToFirebase(path, data) {
     if(!res.ok) throw new Error('HTTP '+res.status);
     return true;
   } catch (error) {
-    console.error("Erreur lors de l'enregistrement:", error);
-    showToast("Erreur de sauvegarde — vérifie ta connexion");
+    console.error("Save error:", error);
+    showToast(T('error_save'));
     return false;
   }
 }
@@ -267,7 +355,7 @@ async function loadFromFirebase(path) {
     if(!res.ok) throw new Error('HTTP '+res.status);
     return await res.json();
   } catch (error) {
-    console.error("Erreur lors du chargement:", error);
+    console.error("Load error:", error);
     return null;
   }
 }
@@ -401,10 +489,10 @@ function checkReminders(){
 
 function fireNotification(r){
   try{
-    new Notification('Rappel — ' + (state.label || state.room), {
-      body: r.text || "Tu as un rappel aujourd'hui."
+    new Notification(T('reminder_notif_title', {label: state.label || state.room}), {
+      body: r.text || T('reminder_notif_body')
     });
-  }catch(e){ showToast('Rappel: ' + r.text); }
+  }catch(e){ showToast(T('toast_reminder_prefix') + r.text); }
 }
 
 async function persistMine(){
@@ -432,7 +520,7 @@ async function clearMyAvail(){
   state.myAvail = new Set();
   await persistMine();
   render();
-  showToast('Tes disponibilités ont été effacées.');
+  showToast(T('toast_cleared'));
 }
 
 function renderHub(){
@@ -456,27 +544,31 @@ function renderHub(){
       </div>`;
     }).join('') + '</div>';
   } else {
-    listHtml = '<div class="empty-groups">Tu n\'as encore rejoint aucun groupe.</div>';
+    listHtml = `<div class="empty-groups">${T('hub_empty')}</div>`;
   }
 
   root.innerHTML = `
     <div class="screen">
-      <div class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="5" width="18" height="16" rx="2"></rect>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-          <circle cx="8" cy="15" r="1.4" fill="white" stroke="none"></circle>
-          <circle cx="13" cy="15" r="1.4" fill="white" stroke="none"></circle>
-          <circle cx="8" cy="18" r="1.4" fill="white" stroke="none"></circle>
-        </svg>
+      <div class="top-row">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+            <circle cx="8" cy="15" r="1.4" fill="white" stroke="none"></circle>
+            <circle cx="13" cy="15" r="1.4" fill="white" stroke="none"></circle>
+            <circle cx="8" cy="18" r="1.4" fill="white" stroke="none"></circle>
+          </svg>
+        </div>
+        ${buildLangSelectHtml('lang-select-hub')}
       </div>
-      <h1 class="lead">Mes groupes</h1>
-      <p class="sub">Retrouve tes groupes de disponibilités par catégorie, ou crée-en un nouveau.</p>
+      <h1 class="lead">${T('hub_title')}</h1>
+      <p class="sub">${T('hub_sub')}</p>
       ${listHtml}
-      <button class="btn btn-primary" id="btn-new-group">+ Nouveau groupe</button>
+      <button class="btn btn-primary" id="btn-new-group">${T('hub_new_group')}</button>
     </div>
   `;
 
+  attachLangSelect('lang-select-hub');
   document.getElementById('btn-new-group').onclick = () => { state.screen = 'join'; render(); };
   document.querySelectorAll('.group-card').forEach(card => {
     card.onclick = (e) => {
@@ -501,7 +593,10 @@ function renderJoin(){
 
   root.innerHTML = `
     <div class="screen">
-      ${hasGroups ? '<button class="back-link" id="btn-back-hub"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B6B68" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> Mes groupes</button>' : ''}
+      <div class="top-row">
+        ${hasGroups ? `<button class="back-link" id="btn-back-hub"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B6B68" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> ${T('back_my_groups')}</button>` : '<div></div>'}
+        ${buildLangSelectHtml('lang-select-join')}
+      </div>
       <div class="brand-mark">
         <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="5" width="18" height="16" rx="2"></rect>
@@ -511,31 +606,32 @@ function renderJoin(){
           <circle cx="8" cy="18" r="1.4" fill="white" stroke="none"></circle>
         </svg>
       </div>
-      <h1 class="lead">Quand êtes-vous libres?</h1>
-      <p class="sub">Crée un groupe ou rejoins celui de tes amis pour comparer vos disponibilités, sur plusieurs mois si besoin.</p>
+      <h1 class="lead">${T('join_title')}</h1>
+      <p class="sub">${T('join_sub')}</p>
 
-      <label class="field-label">Code du groupe</label>
-      <input id="in-room" class="field" placeholder="ex. road-trip-ete" autocomplete="off" />
+      <label class="field-label">${T('label_room_code')}</label>
+      <input id="in-room" class="field" placeholder="${T('ph_room')}" autocomplete="off" />
 
-      <label class="field-label">Nom du groupe (optionnel)</label>
-      <input id="in-label" class="field" placeholder="ex. Sortie entre amis" autocomplete="off" />
+      <label class="field-label">${T('label_group_name')}</label>
+      <input id="in-label" class="field" placeholder="${T('ph_group_name')}" autocomplete="off" />
 
-      <label class="field-label">Catégorie</label>
+      <label class="field-label">${T('label_category')}</label>
       <div class="cat-picker" id="cat-picker">
-        ${Object.keys(CATEGORIES).map(k => `<div class="cat-pick" data-cat="${k}">${CATEGORIES[k].icon} ${CATEGORIES[k].label}</div>`).join('')}
+        ${Object.keys(CATEGORIES).map(k => `<div class="cat-pick" data-cat="${k}">${CATEGORIES[k].icon} ${T('cat_'+k)}</div>`).join('')}
       </div>
 
-      <label class="field-label">Ton prénom</label>
-      <input id="in-name" class="field" placeholder="ex. Sam" autocomplete="off" />
+      <label class="field-label">${T('label_your_name')}</label>
+      <input id="in-name" class="field" placeholder="${T('ph_name')}" autocomplete="off" />
 
-      <label class="field-label">Ta couleur</label>
+      <label class="field-label">${T('label_color')}</label>
       <div class="swatches" id="swatches"></div>
 
-      <button class="btn btn-primary" id="btn-join">Rejoindre le groupe</button>
-      <div class="hint-row">Pas de mot de passe — quiconque a le code peut voir et modifier ses propres disponibilités.</div>
+      <button class="btn btn-primary" id="btn-join">${T('btn_join')}</button>
+      <div class="hint-row">${T('hint_no_password')}</div>
     </div>
   `;
 
+  attachLangSelect('lang-select-join');
   if(hasGroups){
     document.getElementById('btn-back-hub').onclick = () => { state.screen = 'hub'; render(); };
   }
@@ -570,8 +666,8 @@ function renderJoin(){
     const room = roomInput.value.trim();
     const name = nameInput.value.trim();
     const label = labelInput.value.trim();
-    if(!room || !name){ showToast('Ajoute un code de groupe et ton prénom.'); return; }
-    document.getElementById('btn-join').textContent = 'Connexion...';
+    if(!room || !name){ showToast(T('toast_need_fields')); return; }
+    document.getElementById('btn-join').textContent = T('btn_connecting');
     await joinRoom(room, name, chosenColor, chosenCat, label);
   };
 }
@@ -633,9 +729,9 @@ function renderPlanner(){
     return `<div class="member-chip"><div class="member-dot" style="background:${c.bg}">${initial}</div>${escapeHtml(m.name)}</div>`;
   }).join('');
 
-  const monthLabel = state.viewMonth.toLocaleDateString('fr-CA', {month:'long', year:'numeric'});
+  const monthLabel = state.viewMonth.toLocaleDateString(localeOf(), {month:'long', year:'numeric'});
   const cells = buildMonthGrid(state.viewMonth);
-  let weekdaysHtml = WEEKDAY_LABELS.map(w => `<div>${w}</div>`).join('');
+  let weekdaysHtml = weekdayLabels().map(w => `<div>${w}</div>`).join('');
 
   let gridHtml = '';
   cells.forEach(d => {
@@ -671,11 +767,11 @@ function renderPlanner(){
 
   const notifBanner = (state.notifPermission === 'default') ? `
     <div class="notif-banner">
-      <div style="flex:1;">🔔 Active les rappels pour recevoir une notification sur ce cellulaire.</div>
-      <button class="btn btn-ghost btn-small" id="btn-enable-notif">Activer</button>
+      <div style="flex:1;">${T('notif_banner_default')}</div>
+      <button class="btn btn-ghost btn-small" id="btn-enable-notif">${T('btn_enable')}</button>
     </div>` : (state.notifPermission === 'denied' ? `
     <div class="notif-banner">
-      <div style="flex:1;">🔕 Les notifications sont bloquées dans les réglages de ton navigateur.</div>
+      <div style="flex:1;">${T('notif_banner_denied')}</div>
     </div>` : '');
 
   root.innerHTML = `
@@ -684,14 +780,15 @@ function renderPlanner(){
         <div class="topbar-badge" style="background:${cat.color}22; color:${cat.color};">${cat.icon}</div>
         <div style="min-width:0;">
           <div class="room-name">${escapeHtml(state.label || state.room)}</div>
-          <div class="room-code">${state.members.length} membre${state.members.length>1?'s':''} · ${cat.label}</div>
+          <div class="room-code">${state.members.length} ${state.members.length>1?T('member_plural'):T('member_singular')} · ${cat.label}</div>
         </div>
       </div>
       <div style="display:flex; gap:8px;">
-        <div class="icon-btn" id="btn-hub" title="Mes groupes">
+        ${buildLangSelectHtml('lang-select-planner')}
+        <div class="icon-btn" id="btn-hub" title="${T('title_hub')}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B2A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
         </div>
-        <div class="icon-btn" id="btn-refresh" title="Actualiser">
+        <div class="icon-btn" id="btn-refresh" title="${T('title_refresh')}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B2A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
         </div>
       </div>
@@ -702,20 +799,20 @@ function renderPlanner(){
     ${notifBanner}
 
     <div class="segmented">
-      <button data-v="mine" class="${state.view==='mine'?'active':''}">Mes dispos</button>
-      <button data-v="everyone" class="${state.view==='everyone'?'active':''}">Tout le monde</button>
+      <button data-v="mine" class="${state.view==='mine'?'active':''}">${T('tab_mine')}</button>
+      <button data-v="everyone" class="${state.view==='everyone'?'active':''}">${T('tab_everyone')}</button>
     </div>
 
     <div class="month-nav">
       <div class="month-label">${monthLabel}</div>
       <div class="month-nav-controls">
-        <div class="icon-btn" id="btn-today" title="Aujourd'hui">
+        <div class="icon-btn" id="btn-today" title="${T('title_today')}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B2A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1.5" fill="#1B2A2E" stroke="none"></circle></svg>
         </div>
-        <div class="icon-btn" id="btn-prev-month" title="Mois précédent">
+        <div class="icon-btn" id="btn-prev-month" title="${T('title_prev_month')}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B2A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </div>
-        <div class="icon-btn" id="btn-next-month" title="Mois suivant">
+        <div class="icon-btn" id="btn-next-month" title="${T('title_next_month')}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B2A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
       </div>
@@ -723,11 +820,11 @@ function renderPlanner(){
 
     ${state.view === 'mine' ? `
       <div class="legend">
-        <div class="legend-item"><div class="legend-swatch" style="background:${colorOf(state.colorIdx).bg}"></div>Plus la barre est foncée, plus tu as d'heures libres</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:${colorOf(state.colorIdx).bg}"></div>${T('legend_mine')}</div>
       </div>
     ` : `
       <div class="legend">
-        <div class="legend-item"><div class="legend-swatch" style="background:#fff; border:1px solid var(--gold)"></div>Heure commune à tout le monde</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#fff; border:1px solid var(--gold)"></div>${T('legend_everyone')}</div>
       </div>
     `}
 
@@ -736,11 +833,11 @@ function renderPlanner(){
       <div class="cal-grid">${gridHtml}</div>
     </div>
 
-    <div style="text-align:center; padding-top:14px; font-size:12.5px; color:var(--ink-soft);">Touche un jour pour voir les heures, ajouter une note ou un rappel</div>
+    <div style="text-align:center; padding-top:14px; font-size:12.5px; color:var(--ink-soft);">${T('tap_hint')}</div>
 
     <div class="bottom-actions">
-      ${state.view === 'mine' ? '<button class="btn btn-ghost btn-small" id="btn-clear" style="flex:1">Effacer mes dispos</button>' : ''}
-      <button class="btn btn-ghost btn-small" id="btn-leave-group" style="flex:1">Quitter ce groupe</button>
+      ${state.view === 'mine' ? `<button class="btn btn-ghost btn-small" id="btn-clear" style="flex:1">${T('btn_clear_avail')}</button>` : ''}
+      <button class="btn btn-ghost btn-small" id="btn-leave-group" style="flex:1">${T('btn_leave_group')}</button>
     </div>
 
     ${state.sheetOpenFor ? buildSheetHtml(state.sheetOpenFor) : ''}
@@ -748,8 +845,9 @@ function renderPlanner(){
 
   document.body.style.overflow = state.sheetOpenFor ? 'hidden' : '';
 
+  attachLangSelect('lang-select-planner');
   document.getElementById('btn-hub').onclick = goToHub;
-  document.getElementById('btn-refresh').onclick = () => { refreshEverything(); showToast('Mis à jour.'); };
+  document.getElementById('btn-refresh').onclick = () => { refreshEverything(); showToast(T('toast_updated')); };
   document.getElementById('btn-today').onclick = () => { state.viewMonth = startOfMonth(new Date()); render(); };
   document.getElementById('btn-prev-month').onclick = () => { state.viewMonth = new Date(state.viewMonth.getFullYear(), state.viewMonth.getMonth()-1, 1); render(); };
   document.getElementById('btn-next-month').onclick = () => { state.viewMonth = new Date(state.viewMonth.getFullYear(), state.viewMonth.getMonth()+1, 1); render(); };
@@ -763,9 +861,9 @@ function renderPlanner(){
     try{
       const perm = await Notification.requestPermission();
       state.notifPermission = perm;
-      if(perm === 'granted'){ showToast('Rappels activés.'); checkReminders(); }
+      if(perm === 'granted'){ showToast(T('toast_notif_enabled')); checkReminders(); }
       render();
-    }catch(e){ showToast('Ton navigateur ne supporte pas les notifications.'); }
+    }catch(e){ showToast(T('toast_notif_unsupported')); }
   };
 
   document.querySelectorAll('.cal-cell').forEach(cell => {
@@ -793,7 +891,7 @@ function buildHourRows(dateStr){
       const avatars = here.map(m => `<div class="member-dot" style="background:${colorOf(m.colorIdx).bg}" title="${escapeHtml(m.name)}">${m.name.charAt(0).toUpperCase()}</div>`).join('');
       return `<div class="hour-row ${full?'row-overlap':''}">
         <div class="hour-time">${pad(h)}:00</div>
-        <div class="hour-avatars">${avatars || '<span style="font-size:12px; color:var(--ink-soft);">personne</span>'}</div>
+        <div class="hour-avatars">${avatars || `<span style="font-size:12px; color:var(--ink-soft);">${T('nobody')}</span>`}</div>
       </div>`;
     }).join('');
   }
@@ -804,7 +902,7 @@ function buildReminderRows(dateStr){
     .map(id => Object.assign({id}, state.myReminders[id]))
     .filter(r => r.dateStr === dateStr)
     .sort((a,b) => (a.time||'').localeCompare(b.time||''));
-  if(!entries.length) return '<div style="font-size:13px; color:var(--ink-soft);">Aucun rappel pour ce jour.</div>';
+  if(!entries.length) return `<div style="font-size:13px; color:var(--ink-soft);">${T('no_reminder_day')}</div>`;
   return entries.map(r => `
     <div class="reminder-row">
       <div class="reminder-time">${escapeHtml(r.time||'')}</div>
@@ -818,7 +916,7 @@ function buildReminderRows(dateStr){
 
 function buildSheetHtml(dateStr){
   const d = new Date(dateStr+'T00:00:00');
-  const dateLabel = d.toLocaleDateString('fr-CA', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  const dateLabel = d.toLocaleDateString(localeOf(), {weekday:'long', day:'numeric', month:'long', year:'numeric'});
   const groupNoteText = (state.groupNotes[dateStr] && state.groupNotes[dateStr].text) || '';
   const groupNoteAuthor = (state.groupNotes[dateStr] && state.groupNotes[dateStr].authorName) || '';
   const myNoteText = state.myNotes[dateStr] || '';
@@ -829,43 +927,43 @@ function buildSheetHtml(dateStr){
         <div class="sheet-header">
           <div>
             <h3>${dateLabel}</h3>
-            <div class="sheet-sub">${state.view==='mine' ? 'Touche une heure pour indiquer si tu es libre' : 'Qui est libre, heure par heure'}</div>
+            <div class="sheet-sub">${state.view==='mine' ? T('sheet_sub_mine') : T('sheet_sub_everyone')}</div>
           </div>
-          <button class="sheet-close-x" id="sheet-close-x" aria-label="Fermer">
+          <button class="sheet-close-x" id="sheet-close-x" aria-label="${T('btn_close')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B2A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
         ${state.view==='mine' ? `
           <div class="sheet-quick">
-            <button class="btn btn-ghost btn-small" id="btn-day-all" style="flex:1">Toute la journée libre</button>
-            <button class="btn btn-ghost btn-small" id="btn-day-none" style="flex:1">Aucune dispo</button>
+            <button class="btn btn-ghost btn-small" id="btn-day-all" style="flex:1">${T('btn_day_all')}</button>
+            <button class="btn btn-ghost btn-small" id="btn-day-none" style="flex:1">${T('btn_day_none')}</button>
           </div>
         ` : ''}
         <div class="hour-list">${buildHourRows(dateStr)}</div>
 
         <div class="sheet-section">
-          <div class="sheet-section-title">Note du groupe (visible par tous)</div>
-          <textarea class="field" id="note-group" placeholder="ex. Souper chez Max, apportez du vin">${escapeHtml(groupNoteText)}</textarea>
-          ${groupNoteAuthor ? `<div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px;">Dernière modif par ${escapeHtml(groupNoteAuthor)}</div>` : ''}
+          <div class="sheet-section-title">${T('group_note_label')}</div>
+          <textarea class="field" id="note-group" placeholder="${T('group_note_ph')}">${escapeHtml(groupNoteText)}</textarea>
+          ${groupNoteAuthor ? `<div style="font-size:11.5px; color:var(--ink-soft); margin-top:4px;">${T('last_edit_by', {name: escapeHtml(groupNoteAuthor)})}</div>` : ''}
         </div>
 
         <div class="sheet-section">
-          <div class="sheet-section-title">Ma note personnelle</div>
-          <textarea class="field" id="note-mine" placeholder="Visible seulement pour toi dans l'appli">${escapeHtml(myNoteText)}</textarea>
+          <div class="sheet-section-title">${T('my_note_label')}</div>
+          <textarea class="field" id="note-mine" placeholder="${T('my_note_ph')}">${escapeHtml(myNoteText)}</textarea>
         </div>
 
         <div class="sheet-section">
-          <div class="sheet-section-title">Mes rappels</div>
+          <div class="sheet-section-title">${T('my_reminders_label')}</div>
           <div id="reminder-list">${buildReminderRows(dateStr)}</div>
           <div class="reminder-add-row">
             <input type="time" id="rem-time" value="09:00">
-            <input type="text" id="rem-text" placeholder="ex. Confirmer ma présence">
+            <input type="text" id="rem-text" placeholder="${T('reminder_ph')}">
           </div>
-          <button class="btn btn-ghost btn-small" id="btn-add-reminder" style="width:100%; margin-top:8px;">+ Ajouter un rappel</button>
-          ${state.notifPermission !== 'granted' ? '<div style="font-size:11.5px; color:var(--ink-soft); margin-top:6px;">Active les notifications (bandeau plus haut) pour recevoir une alerte.</div>' : ''}
+          <button class="btn btn-ghost btn-small" id="btn-add-reminder" style="width:100%; margin-top:8px;">${T('btn_add_reminder')}</button>
+          ${state.notifPermission !== 'granted' ? `<div style="font-size:11.5px; color:var(--ink-soft); margin-top:6px;">${T('notif_hint')}</div>` : ''}
         </div>
 
-        <button class="btn btn-ghost" style="width:100%; margin-top:16px;" id="sheet-close">Fermer</button>
+        <button class="btn btn-ghost" style="width:100%; margin-top:16px;" id="sheet-close">${T('btn_close')}</button>
       </div>
     </div>
   `;
@@ -921,7 +1019,7 @@ function attachSheetInteractions(dateStr){
     addRemBtn.onclick = async () => {
       const timeVal = document.getElementById('rem-time').value || '09:00';
       const textVal = document.getElementById('rem-text').value.trim();
-      if(!textVal){ showToast('Ajoute un texte pour ton rappel.'); return; }
+      if(!textVal){ showToast(T('toast_add_reminder_text')); return; }
       const id = 'r' + Date.now() + Math.floor(Math.random()*1000);
       const entry = {dateStr, time: timeVal, text: textVal, notified:false};
       state.myReminders[id] = entry;
@@ -985,6 +1083,7 @@ function render(){
   else renderPlanner();
 }
 
+applyLangToDocument();
 const initialGroups = loadJoinedGroups();
 state.screen = initialGroups.length ? 'hub' : 'join';
 render();
